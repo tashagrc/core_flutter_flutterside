@@ -10,25 +10,57 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  static const platform = MethodChannel('natasharadika.flutter.dev/note');
-  final TextEditingController _textController = TextEditingController();
+// state
+class NoteState {
+  final String note;
+  NoteState({required this.note});
 
-  @override
-  void dispose() {
-    _textController.dispose();
-    super.dispose();
+  NoteState copyWith({String? note}) {
+    return NoteState(note: note ?? this.note);
+  }
+}
+
+// event, logic controller
+class NoteNotifier extends ValueNotifier<NoteState> {
+  static const platform = MethodChannel('natasharadika.flutter.dev/note');
+
+  NoteNotifier() : super(NoteState(note: ""));
+
+  void updateNote(String newNote) {
+    value = value.copyWith(note: newNote);
   }
 
-  Future<void> _sendNoteToNative() async {
-    final note = _textController.text;
+  Future<void> saveNote() async {
     try {
       // call method on ios
-      await platform.invokeMethod('saveNote', {"note": note});
-      print("note sent: $note");
+      await platform.invokeMethod('saveNote', {"note": value.note});
+      print("note sent: ${value.note}");
     } on PlatformException catch (e) {
       print("failed to send note ${e.message}");
     }
+  }
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  final TextEditingController _textController = TextEditingController();
+  late final NoteNotifier _notifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _notifier = NoteNotifier();
+
+    // keep state in sync with user input
+    _textController.addListener(() {
+      _notifier.updateNote(_textController.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _notifier.dispose();
+    _textController.dispose();
+    super.dispose();
   }
 
   @override
@@ -69,7 +101,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     const SizedBox(height: 8.0),
                     CupertinoButton.filled(
                         color: CupertinoColors.activeBlue,
-                        onPressed: _sendNoteToNative,
+                        onPressed: _notifier.saveNote,
                         child: const Text("Save Note")),
                   ])),
             )));
