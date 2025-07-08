@@ -1,5 +1,6 @@
+import 'package:core_flutter_flutterside/services/note_repository.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
+import 'package:core_flutter_flutterside/notifiers/note_notifier.dart';
 
 void main() => runApp(const MyHomePage());
 
@@ -10,37 +11,6 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-// state
-class NoteState {
-  final String note;
-  NoteState({required this.note});
-
-  NoteState copyWith({String? note}) {
-    return NoteState(note: note ?? this.note);
-  }
-}
-
-// event, logic controller
-class NoteNotifier extends ValueNotifier<NoteState> {
-  static const platform = MethodChannel('natasharadika.flutter.dev/note');
-
-  NoteNotifier() : super(NoteState(note: ""));
-
-  void updateNote(String newNote) {
-    value = value.copyWith(note: newNote);
-  }
-
-  Future<void> saveNote() async {
-    try {
-      // call method on ios
-      await platform.invokeMethod('saveNote', {"note": value.note});
-      print("note sent: ${value.note}");
-    } on PlatformException catch (e) {
-      print("failed to send note ${e.message}");
-    }
-  }
-}
-
 class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _textController = TextEditingController();
   late final NoteNotifier _notifier;
@@ -48,7 +18,8 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    _notifier = NoteNotifier();
+    final noteRepo = PlatformNoteRepository();
+    _notifier = NoteNotifier(noteRepo);
 
     // keep state in sync with user input
     _textController.addListener(() {
@@ -62,6 +33,30 @@ class _MyHomePageState extends State<MyHomePage> {
     _textController.dispose();
     super.dispose();
   }
+
+  Widget _buildNoteTextField() => CupertinoTextField(
+        controller: _textController,
+        placeholder: "Enter note..",
+        maxLines: null,
+        expands: true,
+        autocorrect: true,
+        enableSuggestions: true,
+        textCapitalization: TextCapitalization.sentences,
+        keyboardType: TextInputType.multiline,
+        textAlignVertical: TextAlignVertical.top,
+        padding: const EdgeInsets.all(8.0),
+        decoration: BoxDecoration(
+            border: Border.all(
+              color: CupertinoColors.lightBackgroundGray,
+              width: 1.0,
+            ),
+            borderRadius: BorderRadius.circular(16.0)),
+      );
+
+  Widget _buildSaveButton() => CupertinoButton.filled(
+      color: CupertinoColors.activeBlue,
+      onPressed: _notifier.saveNote,
+      child: const Text("Save Note"));
 
   @override
   Widget build(BuildContext context) {
@@ -79,30 +74,10 @@ class _MyHomePageState extends State<MyHomePage> {
                       children: [
                     SizedBox(
                       height: 500,
-                      child: CupertinoTextField(
-                        controller: _textController,
-                        placeholder: "Enter note..",
-                        maxLines: null,
-                        expands: true,
-                        autocorrect: true,
-                        enableSuggestions: true,
-                        textCapitalization: TextCapitalization.sentences,
-                        keyboardType: TextInputType.multiline,
-                        textAlignVertical: TextAlignVertical.top,
-                        padding: const EdgeInsets.all(8.0),
-                        decoration: BoxDecoration(
-                            border: Border.all(
-                              color: CupertinoColors.lightBackgroundGray,
-                              width: 1.0,
-                            ),
-                            borderRadius: BorderRadius.circular(16.0)),
-                      ),
+                      child: _buildNoteTextField(),
                     ),
                     const SizedBox(height: 8.0),
-                    CupertinoButton.filled(
-                        color: CupertinoColors.activeBlue,
-                        onPressed: _notifier.saveNote,
-                        child: const Text("Save Note")),
+                    _buildSaveButton()
                   ])),
             )));
   }
